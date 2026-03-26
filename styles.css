@@ -39,17 +39,32 @@ body {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
+  cursor: grab;
+  touch-action: pan-x pan-y;
+  user-select: none;
+}
+
+.room-container.dragging {
+  cursor: grabbing;
+}
+
+.room-map {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1600px;
+  height: 900px;
+  will-change: transform;
 }
 
 .room-bg {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  object-fit: cover;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
   object-position: center;
-  transform: scale(1.02);
+  transform: none;
   filter: brightness(1.4) contrast(1.1);
   user-select: none;
   pointer-events: none;
@@ -166,17 +181,21 @@ body {
 .scene {
   position: absolute;
   inset: 0;
+  pointer-events: none;
 }
 
 .hotspot {
   position: absolute;
-  z-index: 8;
+  z-index: 9999;
+  isolation: isolate;
   width: clamp(20px, 2.5vw, 35px);
   height: clamp(20px, 2.5vw, 35px);
   border: none;
   border-radius: 999px;
   background: transparent;
-  cursor: pointer;
+  pointer-events: all;
+  touch-action: auto;
+  cursor: pointer !important;
   transform: translate(-50%, -50%);
   outline: none;
 }
@@ -218,6 +237,7 @@ body {
 .hotspot:focus-visible,
 .hotspot.is-active {
   backdrop-filter: blur(0.5px);
+  cursor: pointer !important;
 }
 
 .whisper-card {

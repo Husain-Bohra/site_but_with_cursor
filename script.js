@@ -1,38 +1,20 @@
 const IMAGE_SIZE = { width: 1600, height: 900 };
 
-const hotspotMaps = {
-  // Coordinates are stored as percentages of the GIF frame size (1600x900).
-  // They are converted to screen-space using the same object-fit: cover
-  // "scale + centered offset" math in `positionHotspots()`.
-  desktop: {
-    window: { xPct: 0.54, yPct: 0.35 },
-    monitor: { xPct: 0.87, yPct: 0.18 },
-    papers: { xPct: 0.42, yPct: 0.55 }, // Desk
-    bookshelf: { xPct: 0.13, yPct: 0.48 },
-    bed: { xPct: 0.85, yPct: 0.65 },
-  },
-  tablet: {
-    window: { xPct: 0.54, yPct: 0.35 },
-    monitor: { xPct: 0.75, yPct: 0.22 },
-    papers: { xPct: 0.45, yPct: 0.58 }, // Desk
-    bookshelf: { xPct: 0.22, yPct: 0.48 },
-    bed: { xPct: 0.78, yPct: 0.68 },
-  },
-  mobile: {
-    window: { xPct: 0.54, yPct: 0.32 },
-    monitor: { xPct: 0.38, yPct: 0.58 },
-    papers: { xPct: 0.52, yPct: 0.65 }, // Desk
-    bookshelf: { xPct: 0.32, yPct: 0.42 },
-    bed: { xPct: 0.68, yPct: 0.75 },
-  },
+// Hotspot positions in GIF-space (1600x900) pixels.
+// The GIF is never cropped inside the room-map, so these map 1:1.
+const hotspotCoords = {
+  window: { x: 0.54 * IMAGE_SIZE.width, y: 0.35 * IMAGE_SIZE.height },
+  monitor: { x: 0.87 * IMAGE_SIZE.width, y: 0.18 * IMAGE_SIZE.height },
+  papers: { x: 0.42 * IMAGE_SIZE.width, y: 0.55 * IMAGE_SIZE.height },
+  bookshelf: { x: 0.13 * IMAGE_SIZE.width, y: 0.48 * IMAGE_SIZE.height },
+  bed: { x: 0.85 * IMAGE_SIZE.width, y: 0.65 * IMAGE_SIZE.height },
 };
 
-function getHotspotPoint(key) {
-  const w = window.innerWidth;
-  const map =
-    w > 1024 ? hotspotMaps.desktop : w >= 768 ? hotspotMaps.tablet : hotspotMaps.mobile;
-  return map[key];
-}
+// Start position: center the midpoint between desk and window.
+const heartPoint = {
+  x: (hotspotCoords.papers.x + hotspotCoords.window.x) / 2,
+  y: (hotspotCoords.papers.y + hotspotCoords.window.y) / 2,
+};
 
 const whisperCopy = {
   monitor: {
@@ -101,37 +83,65 @@ const closeCardBtn = document.getElementById("close-card");
 const cardEyebrow = document.getElementById("card-eyebrow");
 const cardTitle = document.getElementById("card-title");
 const cardContent = document.getElementById("card-content");
+const roomContainer = document.getElementById("room-container");
+const roomMap = document.getElementById("room-map");
 
 let activeKey = null;
 let pendingCardTimer = null;
+let suppressCloseUntil = 0;
+
+let mapX = 0;
+let mapY = 0;
+let isPointerDown = false;
+let isDragging = false;
+let dragPointerId = null;
+let lastPointerX = 0;
+let lastPointerY = 0;
+let dragDistance = 0;
+
+const DRAG_THRESHOLD_PX = 12;
 
 function positionHotspots() {
   hotspots.forEach((spot) => {
     const key = spot.dataset.key;
-    const point = getHotspotPoint(key);
+    const point = hotspotCoords[key];
     if (!point) return;
 
-    // Map GIF-relative coordinates onto the visible container
-    // using the same geometry as object-fit: cover (centered).
-    const viewportW = window.innerWidth;
-    const viewportH = window.innerHeight;
-
-    const scale = Math.max(
-      viewportW / IMAGE_SIZE.width,
-      viewportH / IMAGE_SIZE.height
-    );
-
-    const renderedW = IMAGE_SIZE.width * scale;
-    const renderedH = IMAGE_SIZE.height * scale;
-    const offsetX = (viewportW - renderedW) / 2;
-    const offsetY = (viewportH - renderedH) / 2;
-
-    const x = offsetX + point.xPct * IMAGE_SIZE.width * scale;
-    const y = offsetY + point.yPct * IMAGE_SIZE.height * scale;
-
-    spot.style.left = `${(x / viewportW) * 100}%`;
-    spot.style.top = `${(y / viewportH) * 100}%`;
+    // Fixed pixel coordinates inside the room-map canvas (1600x900).
+    spot.style.left = `${point.x}px`;
+    spot.style.top = `${point.y}px`;
   });
+}
+
+function getMapBounds() {
+  const vw = roomContainer ? roomContainer.clientWidth : window.innerWidth;
+  const vh = roomContainer ? roomContainer.clientHeight : window.innerHeight;
+  const minX = Math.min(0, vw - IMAGE_SIZE.width);
+  const maxX = Math.max(0, vw - IMAGE_SIZE.width);
+  const minY = Math.min(0, vh - IMAGE_SIZE.height);
+  const maxY = Math.max(0, vh - IMAGE_SIZE.height);
+  return { minX, maxX, minY, maxY };
+}
+
+function applyMapTransform() {
+  if (!roomMap) return;
+  roomMap.style.transform = `translate(${mapX}px, ${mapY}px)`;
+}
+
+function clampMapToBounds() {
+  const { minX, maxX, minY, maxY } = getMapBounds();
+  mapX = Math.max(minX, Math.min(maxX, mapX));
+  mapY = Math.max(minY, Math.min(maxY, mapY));
+}
+
+function centerMapOnHeart() {
+  if (!roomContainer) return;
+  const vw = roomContainer.clientWidth;
+  const vh = roomContainer.clientHeight;
+  mapX = vw / 2 - heartPoint.x;
+  mapY = vh / 2 - heartPoint.y;
+  clampMapToBounds();
+  applyMapTransform();
 }
 
 function renderCard(key) {
@@ -168,7 +178,11 @@ function activateHotspot(key) {
 
 hotspots.forEach((spot) => {
   const key = spot.dataset.key;
-  spot.addEventListener("click", () => activateHotspot(key));
+  spot.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (performance.now() < suppressCloseUntil) return;
+    activateHotspot(key);
+  });
 });
 
 function closeCard() {
@@ -184,6 +198,7 @@ closeCardBtn.addEventListener("click", () => {
 });
 
 document.addEventListener("click", (event) => {
+  if (performance.now() < suppressCloseUntil) return;
   const target = event.target;
   if (target && (target.closest(".hotspot") || target.closest(".whisper-card"))) {
     return;
@@ -191,9 +206,71 @@ document.addEventListener("click", (event) => {
   closeCard();
 });
 
-window.addEventListener("resize", positionHotspots);
-window.addEventListener("load", () => {
-  positionHotspots();
+window.addEventListener("resize", () => {
+  if (isPointerDown || isDragging) return;
+  clampMapToBounds();
+  applyMapTransform();
 });
 
-positionHotspots();
+window.addEventListener("load", () => {
+  positionHotspots();
+  centerMapOnHeart();
+});
+
+function onPointerDown(e) {
+  if (e.target && e.target.closest(".hotspot")) return;
+  if (!roomContainer || !roomMap) return;
+  if (e.target && e.target.closest(".whisper-card")) return;
+
+  roomContainer.classList.add("dragging");
+  isPointerDown = true;
+  isDragging = false;
+  dragPointerId = e.pointerId;
+  lastPointerX = e.clientX;
+  lastPointerY = e.clientY;
+  dragDistance = 0;
+}
+
+function onPointerMove(e) {
+  if (!isPointerDown || e.pointerId !== dragPointerId) return;
+  const dx = e.clientX - lastPointerX;
+  const dy = e.clientY - lastPointerY;
+  dragDistance += Math.hypot(dx, dy);
+
+  lastPointerX = e.clientX;
+  lastPointerY = e.clientY;
+
+  if (!isDragging) {
+    if (dragDistance < DRAG_THRESHOLD_PX) return;
+    isDragging = true;
+  }
+
+  if (isDragging) {
+    mapX += dx;
+    mapY += dy;
+    clampMapToBounds();
+    applyMapTransform();
+    e.preventDefault();
+  }
+}
+
+function onPointerUp(e) {
+  if (!isPointerDown || e.pointerId !== dragPointerId) return;
+  isPointerDown = false;
+  dragPointerId = null;
+
+  if (isDragging) {
+    suppressCloseUntil = performance.now() + 200;
+  }
+
+  isDragging = false;
+  dragDistance = 0;
+  roomContainer.classList.remove("dragging");
+}
+
+if (roomContainer) {
+  roomContainer.addEventListener("pointerdown", onPointerDown);
+  roomContainer.addEventListener("pointermove", onPointerMove, { passive: false });
+  roomContainer.addEventListener("pointerup", onPointerUp);
+  roomContainer.addEventListener("pointercancel", onPointerUp);
+}
