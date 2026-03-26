@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Husain Bohra | Signal in the Noise</title>
+    <meta
+      name="description"
+      content="An immersive portfolio world for Husain Bohra, data scientist and ML builder."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="world" aria-label="Husain Bohra portfolio room">
+      <div class="room-container" id="room-container">
+        <img
+          class="room-bg"
+          src="./assets/room.gif"
+          alt=""
+          aria-hidden="true"
+          draggable="false"
+        />
+        <div class="grain" aria-hidden="true"></div>
+        <div class="aurora" aria-hidden="true"></div>
+
+        <main class="scene" id="scene">
+          <div class="explore-text" aria-hidden="true">
+            <span class="letter" style="--i: 0">e</span
+            ><span class="letter" style="--i: 1">x</span
+            ><span class="letter" style="--i: 2">p</span
+            ><span class="letter" style="--i: 3">l</span
+            ><span class="letter" style="--i: 4">o</span
+            ><span class="letter" style="--i: 5">r</span
+            ><span class="letter" style="--i: 6">e</span
+            ><span class="letter space" style="--i: 7">&nbsp;</span
+            ><span class="letter" style="--i: 8">t</span
+            ><span class="letter" style="--i: 9">h</span
+            ><span class="letter" style="--i: 10">e</span
+            ><span class="letter space" style="--i: 11">&nbsp;</span
+            ><span class="letter" style="--i: 12">r</span
+            ><span class="letter" style="--i: 13">o</span
+            ><span class="letter" style="--i: 14">o</span
+            ><span class="letter" style="--i: 15">m</span>
+          </div>
+
+          <button
+            class="hotspot"
+            data-key="monitor"
+            data-label="Dream Projects"
+            aria-label="Open Dream Projects"
+          ></button>
+          <button
+            class="hotspot"
+            data-key="papers"
+            data-label="Skills"
+            aria-label="Open Skills"
+          ></button>
+          <button
+            class="hotspot"
+            data-key="bookshelf"
+            data-label="Blog observations"
+            aria-label="Open Blog observations"
+          ></button>
+          <button
+            class="hotspot"
+            data-key="bed"
+            data-label="About Husain"
+            aria-label="Open About Husain"
+          ></button>
+          <button
+            class="hotspot"
+            data-key="window"
+            data-label="Hero moment"
+            aria-label="Open Hero Introduction"
+          ></button>
+
+          <section class="whisper-card" id="whisper-card" aria-live="polite">
+            <div class="whisper-glow" aria-hidden="true"></div>
+            <button class="close-card" id="close-card" aria-label="Close panel">
+              ×
+            </button>
+            <p class="card-eyebrow" id="card-eyebrow">The room listens.</p>
+            <h1 class="card-title" id="card-title">Husain Bohra</h1>
+            <div class="card-content" id="card-content"></div>
+          </section>
+        </main>
+      </div>
+
+      <footer class="dock">
+        <a href="https://github.com/Husain-Bohra" target="_blank" rel="noreferrer"
+          >GitHub</a
+        >
+        <a href="mailto:husainkapasan@gmail.com">husainkapasan@gmail.com</a>
+      </footer>
+    </div>
+
+    <script src="./script.js"></script>
+  </body>
+</html>
