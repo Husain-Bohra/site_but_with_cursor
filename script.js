@@ -126,6 +126,11 @@ let dragDistance = 0;
 
 let isDay = false;
 let isTransitioning = false;
+let userHasInteracted = false;
+let intentionalPause = false;
+let lastKnownTime = 0;
+let frozenCheckTimer = null;
+let consecutiveFreezes = 0;
 
 /* ═══════════════════════════════════════════
    SECTION 4 — INITIALIZATION
@@ -220,32 +225,85 @@ function closeCard() {
   pendingCardTimer = null;
 }
 
+function keepVideoAlive() {
+  if (intentionalPause || !userHasInteracted || bgVideo.ended) return;
+  bgVideo.play().catch(() => {});
+}
+
+function startFrozenCheck() {
+  stopFrozenCheck();
+  lastKnownTime = bgVideo.currentTime;
+  consecutiveFreezes = 0;
+  frozenCheckTimer = setInterval(() => {
+    if (intentionalPause || bgVideo.paused || bgVideo.ended || !userHasInteracted) {
+      lastKnownTime = bgVideo.currentTime;
+      consecutiveFreezes = 0;
+      return;
+    }
+    if (Math.abs(bgVideo.currentTime - lastKnownTime) < 0.01) {
+      consecutiveFreezes++;
+      if (consecutiveFreezes >= 2) {
+        const t = bgVideo.currentTime;
+        bgVideo.load();
+        bgVideo.currentTime = t;
+        consecutiveFreezes = 0;
+      }
+      bgVideo.play().catch(() => {});
+    } else {
+      consecutiveFreezes = 0;
+    }
+    lastKnownTime = bgVideo.currentTime;
+  }, 1500);
+}
+
+function stopFrozenCheck() {
+  if (frozenCheckTimer) {
+    clearInterval(frozenCheckTimer);
+    frozenCheckTimer = null;
+  }
+}
+
 function toggleDayNight() {
   if (isTransitioning) return;
   isTransitioning = true;
+  intentionalPause = true;
+  stopFrozenCheck();
 
   whiteout.classList.add("active");
 
+  bgVideo.loop = false;
+  bgVideo.src = "./assets/transition.mp4";
+  bgVideo.load();
+  intentionalPause = false;
+  bgVideo.play().catch(() => {});
+
   setTimeout(() => {
-    bgVideo.loop = false;
-    bgVideo.src = "./assets/transition.mp4";
+    whiteout.classList.remove("active");
+  }, 800);
+
+  const fallbackTimer = setTimeout(finishTransition, 10000);
+
+  function finishTransition() {
+    if (!isTransitioning) return;
+    clearTimeout(fallbackTimer);
+    bgVideo.removeEventListener("ended", finishTransition);
+    bgVideo.removeEventListener("error", finishTransition);
+
+    intentionalPause = true;
+    isDay = !isDay;
+    bgVideo.loop = true;
+    bgVideo.src = isDay
+      ? "./assets/daytime.mp4"
+      : "./assets/nighttime.mp4";
+    bgVideo.load();
+    intentionalPause = false;
     bgVideo.play().catch(() => {});
+    startFrozenCheck();
+    isTransitioning = false;
+  }
 
-    setTimeout(() => {
-      whiteout.classList.remove("active");
-    }, 400);
-
-    bgVideo.onended = () => {
-      isDay = !isDay;
-      bgVideo.loop = true;
-      bgVideo.src = isDay
-        ? "./assets/daytime.mp4"
-        : "./assets/nighttime.mp4";
-      bgVideo.play().catch(() => {});
-      isTransitioning = false;
-      bgVideo.onended = null;
-    };
-  }, 400);
+  bgVideo.addEventListener("ended", finishTransition);
+  bgVideo.addEventListener("error", finishTransition);
 }
 function onPointerDown(e) {
   if (e.target && e.target.closest(".hotspot")) return;
@@ -302,11 +360,17 @@ function onPointerUp(e) {
    SECTION 6 — EVENT LISTENERS
    ═══════════════════════════════════════════ */
 
+bgVideo.addEventListener("pause", keepVideoAlive);
+
 landing.addEventListener("click", () => {
-  bgVideo.volume = VOLUME.night;
-  bgVideo.removeAttribute('muted');
-  bgVideo.muted = false;
+  userHasInteracted = true;
+  if (!isMobile) {
+    bgVideo.volume = VOLUME.night;
+    bgVideo.removeAttribute("muted");
+    bgVideo.muted = false;
+  }
   bgVideo.play().catch(() => {});
+  startFrozenCheck();
   landing.classList.add("fade-out");
   setTimeout(() => landing.remove(), 800);
 });

@@ -489,6 +489,15 @@ body {
    ═══════════════════════════════════════════ */
 
 @media (max-width: 768px) {
+  .aurora {
+    filter: blur(40px);
+  }
+
+  .room-bg {
+    transform: translateZ(0);
+    will-change: transform;
+  }
+
   .whisper-card {
     left: 10px;
     right: 10px;
