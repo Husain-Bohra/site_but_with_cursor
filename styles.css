@@ -65,7 +65,7 @@ body {
   object-fit: contain;
   object-position: center;
   transform: none;
-  filter: brightness(1.4) contrast(1.1);
+  filter: none;
   user-select: none;
   pointer-events: none;
 }
@@ -195,6 +195,26 @@ body {
 .hotspot.is-active {
   backdrop-filter: blur(0.5px);
   cursor: pointer !important;
+}
+
+.hotspot-light::before {
+  border-color: #ffffff;
+}
+.hotspot-light::after {
+  box-shadow: 0 0 15px rgba(255, 255, 200, 0.8);
+}
+
+#whiteout {
+  position: fixed;
+  inset: 0;
+  background: white;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 999;
+  transition: opacity 0.4s ease;
+}
+#whiteout.active {
+  opacity: 1;
 }
 
 .whisper-card {

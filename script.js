@@ -273,3 +273,51 @@ if (roomContainer) {
   roomContainer.addEventListener("pointerup", onPointerUp);
   roomContainer.addEventListener("pointercancel", onPointerUp);
 }
+
+// Day/night toggle
+const bgVideo = document.getElementById("bg-video");
+const whiteout = document.getElementById("whiteout");
+const lightToggle = document.getElementById("light-toggle");
+
+let isDay = false;
+let isTransitioning = false;
+
+hotspotCoords.light = {
+  x: 0.50 * IMAGE_SIZE.width,
+  y: 0.13 * IMAGE_SIZE.height
+};
+
+function toggleDayNight() {
+  if (isTransitioning) return;
+  isTransitioning = true;
+
+  whiteout.classList.add("active");
+
+  setTimeout(() => {
+    bgVideo.loop = false;
+    bgVideo.src = "./assets/transition.mp4";
+    bgVideo.load();
+    bgVideo.play();
+
+    setTimeout(() => {
+      whiteout.classList.remove("active");
+    }, 400);
+
+    bgVideo.onended = () => {
+      isDay = !isDay;
+      bgVideo.loop = true;
+      bgVideo.src = isDay
+        ? "./assets/daytime.mp4"
+        : "./assets/nighttime.mp4";
+      bgVideo.load();
+      bgVideo.play();
+      isTransitioning = false;
+      bgVideo.onended = null;
+    };
+  }, 400);
+}
+
+lightToggle.addEventListener("click", (e) => {
+  e.stopPropagation();
+  toggleDayNight();
+});

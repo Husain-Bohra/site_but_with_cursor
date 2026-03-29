@@ -20,13 +20,10 @@
     <div class="world" aria-label="Husain Bohra portfolio room">
       <div class="room-container" id="room-container">
         <div class="room-map" id="room-map">
-          <img
-            class="room-bg"
-            src="./assets/room.gif"
-            alt=""
-            aria-hidden="true"
-            draggable="false"
-          />
+          <video id="bg-video" class="room-bg"
+            autoplay loop muted playsinline>
+            <source src="./assets/nighttime.mp4" type="video/mp4">
+          </video>
           <button
             class="hotspot"
             data-key="monitor"
@@ -57,7 +54,14 @@
             data-label="Hero moment"
             aria-label="Open Hero Introduction"
           ></button>
+          <button
+            class="hotspot hotspot-light"
+            id="light-toggle"
+            data-key="light"
+            aria-label="Toggle day and night"
+          ></button>
         </div>
+        <div id="whiteout"></div>
         <div class="grain" aria-hidden="true"></div>
         <div class="aurora" aria-hidden="true"></div>
 
