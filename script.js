@@ -204,6 +204,71 @@ async function preloadVideoBlobs() {
   intentionalPause = false;
   bgVideo.play().catch(() => {});
   diag("swapped to blob source");
+  startCanvasRenderer();
+}
+
+/* ═══════════════════════════════════════════
+   SECTION 5c — CANVAS RENDERER (MOBILE)
+   ═══════════════════════════════════════════ */
+
+let bgCanvas = null;
+let bgCtx = null;
+let canvasActive = false;
+
+function startCanvasRenderer() {
+  if (!isMobile || canvasActive) return;
+
+  bgCanvas = document.createElement("canvas");
+  bgCanvas.width = 1600;
+  bgCanvas.height = 900;
+  bgCanvas.className = "room-bg";
+  bgCanvas.id = "bg-canvas";
+
+  bgVideo.parentNode.insertBefore(bgCanvas, bgVideo);
+
+  bgVideo.style.position = "absolute";
+  bgVideo.style.width = "1px";
+  bgVideo.style.height = "1px";
+  bgVideo.style.opacity = "0";
+
+  bgCtx = bgCanvas.getContext("2d");
+  canvasActive = true;
+
+  let lastDrawTime = 0;
+  let sameFrameCount = 0;
+  let lastFrameTime = -1;
+
+  function drawLoop() {
+    if (!canvasActive) return;
+
+    if (bgVideo.readyState >= 2) {
+      bgCtx.drawImage(bgVideo, 0, 0, 1600, 900);
+
+      const ct = bgVideo.currentTime;
+      if (Math.abs(ct - lastFrameTime) < 0.001) {
+        sameFrameCount++;
+        if (sameFrameCount === 60) {
+          diag(`canvas: stuck t=${ct.toFixed(2)}, seeking`);
+          bgVideo.currentTime = ct + 0.05;
+          bgVideo.play().catch(() => {});
+        }
+        if (sameFrameCount === 180) {
+          diag(`canvas: hard stuck, reloading`);
+          bgVideo.load();
+          bgVideo.play().catch(() => {});
+          sameFrameCount = 0;
+        }
+      } else {
+        sameFrameCount = 0;
+      }
+      lastFrameTime = ct;
+    }
+
+    requestAnimationFrame(drawLoop);
+  }
+
+  requestAnimationFrame(drawLoop);
+  diag("canvas renderer started");
 }
 
 /* ═══════════════════════════════════════════
@@ -340,7 +405,6 @@ function replaceVideoElement() {
   stopFrozenCheck();
 
   const parent = bgVideo.parentNode;
-  const nextSibling = bgVideo.nextSibling;
 
   const newVideo = document.createElement("video");
   newVideo.id = "bg-video";
@@ -353,15 +417,17 @@ function replaceVideoElement() {
   newVideo.setAttribute("muted", "");
   newVideo.setAttribute("preload", "auto");
 
+  if (canvasActive) {
+    newVideo.style.position = "absolute";
+    newVideo.style.width = "1px";
+    newVideo.style.height = "1px";
+    newVideo.style.opacity = "0";
+  }
+
   bgVideo.removeAttribute("src");
   bgVideo.load();
+  parent.insertBefore(newVideo, bgVideo);
   bgVideo.remove();
-
-  if (nextSibling) {
-    parent.insertBefore(newVideo, nextSibling);
-  } else {
-    parent.appendChild(newVideo);
-  }
 
   bgVideo = newVideo;
   attachVideoListeners(bgVideo);
@@ -528,6 +594,7 @@ landing.addEventListener("click", () => {
   bgVideo.play().catch((e) => {
     diag(`landing-play FAIL: ${e.name}`);
   });
+  startCanvasRenderer();
   startFrozenCheck();
   landing.classList.add("fade-out");
   setTimeout(() => landing.remove(), 800);
