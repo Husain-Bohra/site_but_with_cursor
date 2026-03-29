@@ -133,7 +133,6 @@ let isTransitioning = false;
 
 const isMobile = window.innerWidth <= 768
   || /Mobi|Android/i.test(navigator.userAgent);
-bgVideo.volume = VOLUME.night;
 
 /* ═══════════════════════════════════════════
    SECTION 5 — FUNCTIONS
@@ -230,9 +229,7 @@ function toggleDayNight() {
   setTimeout(() => {
     bgVideo.loop = false;
     bgVideo.src = "./assets/transition.mp4";
-    bgVideo.volume = VOLUME.transition;
-    bgVideo.load();
-    bgVideo.play();
+    bgVideo.play().catch(() => {});
 
     setTimeout(() => {
       whiteout.classList.remove("active");
@@ -244,15 +241,12 @@ function toggleDayNight() {
       bgVideo.src = isDay
         ? "./assets/daytime.mp4"
         : "./assets/nighttime.mp4";
-      bgVideo.volume = isDay ? VOLUME.day : VOLUME.night;
-      bgVideo.load();
-      bgVideo.play();
+      bgVideo.play().catch(() => {});
       isTransitioning = false;
       bgVideo.onended = null;
     };
   }, 400);
 }
-
 function onPointerDown(e) {
   if (e.target && e.target.closest(".hotspot")) return;
   if (!roomContainer || !roomMap) return;
@@ -312,13 +306,9 @@ landing.addEventListener("click", () => {
   bgVideo.volume = VOLUME.night;
   bgVideo.removeAttribute('muted');
   bgVideo.muted = false;
-  if (!bgVideo.playing) bgVideo.play().catch(() => {});
-
+  bgVideo.play().catch(() => {});
   landing.classList.add("fade-out");
-
-  setTimeout(() => {
-    landing.remove();
-  }, 800);
+  setTimeout(() => landing.remove(), 800);
 });
 
 hotspots.forEach((spot) => {
