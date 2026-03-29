@@ -76,7 +76,6 @@ const whisperCopy = {
   },
 };
 
-const scene = document.getElementById("scene");
 const hotspots = Array.from(document.querySelectorAll(".hotspot"));
 const card = document.getElementById("whisper-card");
 const closeCardBtn = document.getElementById("close-card");
