@@ -133,7 +133,6 @@ let isTransitioning = false;
 
 const isMobile = window.innerWidth <= 768
   || /Mobi|Android/i.test(navigator.userAgent);
-bgVideo.muted = true;
 bgVideo.volume = VOLUME.night;
 
 /* ═══════════════════════════════════════════
@@ -310,7 +309,10 @@ function onPointerUp(e) {
    ═══════════════════════════════════════════ */
 
 landing.addEventListener("click", () => {
-  bgVideo.muted = isMobile;
+  if (!isMobile) {
+    bgVideo.removeAttribute('muted');
+    bgVideo.muted = false;
+  }
   bgVideo.volume = VOLUME.night;
   bgVideo.play();
 
