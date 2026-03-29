@@ -135,6 +135,8 @@ let consecutiveFreezes = 0;
 let keepAliveBackoff = 0;
 let currentVideoSrc = "./assets/nighttime.mp4";
 let transitionFallbackTimer = null;
+const videoBlobUrls = {};
+let blobsReady = false;
 
 /* ═══════════════════════════════════════════
    SECTION 4 — INITIALIZATION
@@ -169,6 +171,39 @@ function attachDiagListeners(vid) {
       diag(`${evt} p=${vid.paused} t=${vid.currentTime.toFixed(1)} rs=${vid.readyState} ns=${vid.networkState}`);
     });
   });
+}
+
+/* ═══════════════════════════════════════════
+   SECTION 5b — VIDEO BLOB PRELOADER
+   ═══════════════════════════════════════════ */
+
+function videoSrc(filename) {
+  return videoBlobUrls[filename] || `./assets/${filename}`;
+}
+
+async function preloadVideoBlobs() {
+  if (!isMobile) return;
+  diag("preloading video blobs...");
+  const files = ["nighttime.mp4", "daytime.mp4", "transition.mp4"];
+  await Promise.all(files.map(async (file) => {
+    try {
+      const resp = await fetch(`./assets/${file}`);
+      const blob = await resp.blob();
+      videoBlobUrls[file] = URL.createObjectURL(blob);
+      diag(`blob: ${file} (${(blob.size / 1024).toFixed(0)}KB)`);
+    } catch (e) {
+      diag(`blob FAIL: ${file} ${e.message}`);
+    }
+  }));
+  blobsReady = true;
+
+  currentVideoSrc = videoSrc("nighttime.mp4");
+  intentionalPause = true;
+  bgVideo.src = currentVideoSrc;
+  bgVideo.load();
+  intentionalPause = false;
+  bgVideo.play().catch(() => {});
+  diag("swapped to blob source");
 }
 
 /* ═══════════════════════════════════════════
@@ -389,9 +424,8 @@ function finishTransition() {
 
   intentionalPause = true;
   isDay = !isDay;
-  currentVideoSrc = isDay
-    ? "./assets/daytime.mp4"
-    : "./assets/nighttime.mp4";
+  const targetFile = isDay ? "daytime.mp4" : "nighttime.mp4";
+  currentVideoSrc = videoSrc(targetFile);
   bgVideo.src = currentVideoSrc;
   bgVideo.load();
   intentionalPause = false;
@@ -409,7 +443,7 @@ function toggleDayNight() {
 
   whiteout.classList.add("active");
 
-  bgVideo.src = "./assets/transition.mp4";
+  bgVideo.src = videoSrc("transition.mp4");
   bgVideo.load();
   intentionalPause = false;
   bgVideo.play().catch(() => {});
@@ -543,4 +577,5 @@ window.addEventListener("load", () => {
   positionHotspots();
   centerMapOnHeart();
   diag(`init: mobile=${isMobile} src=${bgVideo.src.split("/").pop()} muted=${bgVideo.muted}`);
+  preloadVideoBlobs();
 });
