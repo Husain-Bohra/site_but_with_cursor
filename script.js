@@ -314,7 +314,7 @@ landing.addEventListener("click", () => {
     bgVideo.muted = false;
   }
   bgVideo.volume = VOLUME.night;
-  bgVideo.play();
+  if (!isMobile) bgVideo.play();
 
   landing.classList.add("fade-out");
 
