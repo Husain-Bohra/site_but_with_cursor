@@ -279,6 +279,14 @@ const bgVideo = document.getElementById("bg-video");
 const whiteout = document.getElementById("whiteout");
 const lightToggle = document.getElementById("light-toggle");
 
+const VOLUME = {
+  night: 0.99,
+  day: 0.99,
+  transition: 0.8
+};
+
+bgVideo.volume = VOLUME.night;
+
 let isDay = false;
 let isTransitioning = false;
 
@@ -296,6 +304,7 @@ function toggleDayNight() {
   setTimeout(() => {
     bgVideo.loop = false;
     bgVideo.src = "./assets/transition.mp4";
+    bgVideo.volume = VOLUME.transition;
     bgVideo.load();
     bgVideo.play();
 
@@ -309,6 +318,7 @@ function toggleDayNight() {
       bgVideo.src = isDay
         ? "./assets/daytime.mp4"
         : "./assets/nighttime.mp4";
+      bgVideo.volume = isDay ? VOLUME.day : VOLUME.night;
       bgVideo.load();
       bgVideo.play();
       isTransitioning = false;
@@ -321,3 +331,20 @@ lightToggle.addEventListener("click", (e) => {
   e.stopPropagation();
   toggleDayNight();
 });
+
+// Landing screen
+const landing = document.getElementById("landing");
+
+landing.addEventListener("click", () => {
+  bgVideo.muted = false;
+  bgVideo.volume = VOLUME.night;
+  bgVideo.play();
+
+  landing.classList.add("fade-out");
+
+  setTimeout(() => {
+    landing.remove();
+  }, 800);
+});
+
+bgVideo.muted = true;
