@@ -309,12 +309,10 @@ function onPointerUp(e) {
    ═══════════════════════════════════════════ */
 
 landing.addEventListener("click", () => {
-  if (!isMobile) {
-    bgVideo.removeAttribute('muted');
-    bgVideo.muted = false;
-  }
   bgVideo.volume = VOLUME.night;
-  if (!isMobile) bgVideo.play();
+  bgVideo.removeAttribute('muted');
+  bgVideo.muted = false;
+  if (!bgVideo.playing) bgVideo.play().catch(() => {});
 
   landing.classList.add("fade-out");
 
