@@ -1,3 +1,42 @@
+/* ═══════════════════════════════════════════
+   1. Variables
+   ═══════════════════════════════════════════ */
+
+:root {
+  --amber: #e7b45f;
+  --amber-soft: rgba(231, 180, 95, 0.35);
+  --ink: rgba(9, 12, 22, 0.72);
+  --card-border: rgba(236, 198, 132, 0.25);
+  --text-main: #edf1ff;
+  --text-soft: #b8c5f4;
+}
+
+/* ═══════════════════════════════════════════
+   2. Reset
+   ═══════════════════════════════════════════ */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: "Inter", sans-serif;
+  color: var(--text-main);
+  background: #050811;
+  overflow: hidden;
+}
+
+/* ═══════════════════════════════════════════
+   3. Landing screen
+   ═══════════════════════════════════════════ */
+
 .landing {
   position: fixed;
   inset: 0;
@@ -24,32 +63,9 @@
   font-weight: 300;
 }
 
-:root {
-  --amber: #e7b45f;
-  --amber-soft: rgba(231, 180, 95, 0.35);
-  --ink: rgba(9, 12, 22, 0.72);
-  --card-border: rgba(236, 198, 132, 0.25);
-  --text-main: #edf1ff;
-  --text-soft: #b8c5f4;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-html,
-body {
-  width: 100%;
-  height: 100%;
-  margin: 0;
-}
-
-body {
-  font-family: "Inter", sans-serif;
-  color: var(--text-main);
-  background: #050811;
-  overflow: hidden;
-}
+/* ═══════════════════════════════════════════
+   4. World
+   ═══════════════════════════════════════════ */
 
 .world {
   position: relative;
@@ -57,7 +73,10 @@ body {
   height: 100vh;
 }
 
-/* Room base layer: background GIF */
+/* ═══════════════════════════════════════════
+   5. Room container (fixed viewport)
+   ═══════════════════════════════════════════ */
+
 .room-container {
   position: fixed;
   top: 0;
@@ -74,6 +93,10 @@ body {
   cursor: grabbing;
 }
 
+/* ═══════════════════════════════════════════
+   6. Room map (pannable 1600×900 canvas)
+   ═══════════════════════════════════════════ */
+
 .room-map {
   position: absolute;
   left: 0;
@@ -83,6 +106,10 @@ body {
   will-change: transform;
 }
 
+/* ═══════════════════════════════════════════
+   7. Room background (video / GIF)
+   ═══════════════════════════════════════════ */
+
 .room-bg {
   position: absolute;
   inset: 0;
@@ -91,10 +118,32 @@ body {
   object-fit: contain;
   object-position: center;
   transform: none;
-  filter: hue-rotate(10deg) saturate(1.3);
+  filter: none;
   user-select: none;
   pointer-events: none;
 }
+
+/* ═══════════════════════════════════════════
+   8. Whiteout overlay (day/night transition)
+   ═══════════════════════════════════════════ */
+
+#whiteout {
+  position: fixed;
+  inset: 0;
+  background: white;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 999;
+  transition: opacity 0.4s ease;
+}
+
+#whiteout.active {
+  opacity: 1;
+}
+
+/* ═══════════════════════════════════════════
+   9. Grain overlay
+   ═══════════════════════════════════════════ */
 
 .grain {
   position: fixed;
@@ -105,6 +154,10 @@ body {
   mix-blend-mode: soft-light;
   opacity: 0.16;
 }
+
+/* ═══════════════════════════════════════════
+   10. Aurora overlay
+   ═══════════════════════════════════════════ */
 
 .aurora {
   position: fixed;
@@ -121,7 +174,20 @@ body {
   animation: drift 14s ease-in-out infinite alternate;
 }
 
-/* Always-visible explore text (top center) */
+/* ═══════════════════════════════════════════
+   11. Scene (pointer-events: none — CRITICAL)
+   ═══════════════════════════════════════════ */
+
+.scene {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════
+   12. Explore text
+   ═══════════════════════════════════════════ */
+
 .explore-text {
   position: fixed;
   top: clamp(10px, 2.2vh, 18px);
@@ -143,29 +209,9 @@ body {
   text-shadow: 0 0 0 rgba(231, 180, 95, 0);
 }
 
-@keyframes exploreGlitter {
-  0%,
-  100% {
-    opacity: 0.72;
-    text-shadow: 0 0 0 rgba(231, 180, 95, 0);
-  }
-  40% {
-    opacity: 1;
-    text-shadow: 0 0 10px rgba(231, 180, 95, 0.55),
-      0 0 22px rgba(231, 180, 95, 0.22);
-  }
-  70% {
-    opacity: 0.78;
-    text-shadow: 0 0 6px rgba(231, 180, 95, 0.35),
-      0 0 14px rgba(231, 180, 95, 0.18);
-  }
-}
-
-.scene {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
+/* ═══════════════════════════════════════════
+   13. Hotspots
+   ═══════════════════════════════════════════ */
 
 .hotspot {
   position: absolute;
@@ -223,25 +269,21 @@ body {
   cursor: pointer !important;
 }
 
+/* ═══════════════════════════════════════════
+   14. Light toggle hotspot
+   ═══════════════════════════════════════════ */
+
 .hotspot-light::before {
   border-color: #ffffff;
 }
+
 .hotspot-light::after {
   box-shadow: 0 0 15px rgba(255, 255, 200, 0.8);
 }
 
-#whiteout {
-  position: fixed;
-  inset: 0;
-  background: white;
-  opacity: 0;
-  pointer-events: none;
-  z-index: 999;
-  transition: opacity 0.4s ease;
-}
-#whiteout.active {
-  opacity: 1;
-}
+/* ═══════════════════════════════════════════
+   15. Whisper card
+   ═══════════════════════════════════════════ */
 
 .whisper-card {
   position: fixed;
@@ -273,6 +315,10 @@ body {
   pointer-events: auto;
 }
 
+/* ═══════════════════════════════════════════
+   16. Whisper glow
+   ═══════════════════════════════════════════ */
+
 .whisper-glow {
   position: absolute;
   top: -30%;
@@ -284,6 +330,10 @@ body {
   background: radial-gradient(circle at center, rgba(231, 180, 95, 0.24), rgba(231, 180, 95, 0));
   pointer-events: none;
 }
+
+/* ═══════════════════════════════════════════
+   17. Close card button
+   ═══════════════════════════════════════════ */
 
 .close-card {
   position: absolute;
@@ -299,6 +349,10 @@ body {
   line-height: 1;
   cursor: pointer;
 }
+
+/* ═══════════════════════════════════════════
+   18. Card content typography
+   ═══════════════════════════════════════════ */
 
 .card-eyebrow {
   margin: 0;
@@ -336,6 +390,10 @@ body {
   border-bottom: 1px solid rgba(255, 208, 137, 0.4);
 }
 
+/* ═══════════════════════════════════════════
+   19. Dock (footer links)
+   ═══════════════════════════════════════════ */
+
 .dock {
   position: fixed;
   z-index: 9;
@@ -355,6 +413,10 @@ body {
   border-radius: 999px;
   font-size: 0.82rem;
 }
+
+/* ═══════════════════════════════════════════
+   20. Keyframes
+   ═══════════════════════════════════════════ */
 
 @keyframes drift {
   from {
@@ -403,6 +465,28 @@ body {
     opacity: 0.02;
   }
 }
+
+@keyframes exploreGlitter {
+  0%,
+  100% {
+    opacity: 0.72;
+    text-shadow: 0 0 0 rgba(231, 180, 95, 0);
+  }
+  40% {
+    opacity: 1;
+    text-shadow: 0 0 10px rgba(231, 180, 95, 0.55),
+      0 0 22px rgba(231, 180, 95, 0.22);
+  }
+  70% {
+    opacity: 0.78;
+    text-shadow: 0 0 6px rgba(231, 180, 95, 0.35),
+      0 0 14px rgba(231, 180, 95, 0.18);
+  }
+}
+
+/* ═══════════════════════════════════════════
+   21. Mobile
+   ═══════════════════════════════════════════ */
 
 @media (max-width: 768px) {
   .whisper-card {

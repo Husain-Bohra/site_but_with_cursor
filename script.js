@@ -1,16 +1,18 @@
+/* ═══════════════════════════════════════════
+   SECTION 1 — CONSTANTS AND DATA
+   ═══════════════════════════════════════════ */
+
 const IMAGE_SIZE = { width: 1600, height: 900 };
 
-// Hotspot positions in GIF-space (1600x900) pixels.
-// The GIF is never cropped inside the room-map, so these map 1:1.
 const hotspotCoords = {
-  window: { x: 0.54 * IMAGE_SIZE.width, y: 0.35 * IMAGE_SIZE.height },
-  monitor: { x: 0.87 * IMAGE_SIZE.width, y: 0.18 * IMAGE_SIZE.height },
-  papers: { x: 0.42 * IMAGE_SIZE.width, y: 0.55 * IMAGE_SIZE.height },
+  window:    { x: 0.54 * IMAGE_SIZE.width, y: 0.35 * IMAGE_SIZE.height },
+  monitor:   { x: 0.87 * IMAGE_SIZE.width, y: 0.18 * IMAGE_SIZE.height },
+  papers:    { x: 0.42 * IMAGE_SIZE.width, y: 0.55 * IMAGE_SIZE.height },
   bookshelf: { x: 0.13 * IMAGE_SIZE.width, y: 0.48 * IMAGE_SIZE.height },
-  bed: { x: 0.85 * IMAGE_SIZE.width, y: 0.65 * IMAGE_SIZE.height },
+  bed:       { x: 0.85 * IMAGE_SIZE.width, y: 0.65 * IMAGE_SIZE.height },
+  light:     { x: 0.50 * IMAGE_SIZE.width, y: 0.13 * IMAGE_SIZE.height },
 };
 
-// Start position: center the midpoint between desk and window.
 const heartPoint = {
   x: (hotspotCoords.papers.x + hotspotCoords.window.x) / 2,
   y: (hotspotCoords.papers.y + hotspotCoords.window.y) / 2,
@@ -76,14 +78,37 @@ const whisperCopy = {
   },
 };
 
+const VOLUME = {
+  night: 0.99,
+  day: 0.99,
+  transition: 0.8,
+};
+
+const DRAG_THRESHOLD_PX = 12;
+
+/* ═══════════════════════════════════════════
+   SECTION 2 — DOM REFERENCES
+   ═══════════════════════════════════════════ */
+
+const bgVideo = document.getElementById("bg-video");
+const whiteout = document.getElementById("whiteout");
+const landing = document.getElementById("landing");
+const lightToggle = document.getElementById("light-toggle");
+
 const hotspots = Array.from(document.querySelectorAll(".hotspot"));
 const card = document.getElementById("whisper-card");
 const closeCardBtn = document.getElementById("close-card");
+
 const cardEyebrow = document.getElementById("card-eyebrow");
 const cardTitle = document.getElementById("card-title");
 const cardContent = document.getElementById("card-content");
+
 const roomContainer = document.getElementById("room-container");
 const roomMap = document.getElementById("room-map");
+
+/* ═══════════════════════════════════════════
+   SECTION 3 — STATE VARIABLES
+   ═══════════════════════════════════════════ */
 
 let activeKey = null;
 let pendingCardTimer = null;
@@ -91,6 +116,7 @@ let suppressCloseUntil = 0;
 
 let mapX = 0;
 let mapY = 0;
+
 let isPointerDown = false;
 let isDragging = false;
 let dragPointerId = null;
@@ -98,7 +124,19 @@ let lastPointerX = 0;
 let lastPointerY = 0;
 let dragDistance = 0;
 
-const DRAG_THRESHOLD_PX = 12;
+let isDay = false;
+let isTransitioning = false;
+
+/* ═══════════════════════════════════════════
+   SECTION 4 — INITIALIZATION
+   ═══════════════════════════════════════════ */
+
+bgVideo.muted = true;
+bgVideo.volume = VOLUME.night;
+
+/* ═══════════════════════════════════════════
+   SECTION 5 — FUNCTIONS
+   ═══════════════════════════════════════════ */
 
 function positionHotspots() {
   hotspots.forEach((spot) => {
@@ -106,7 +144,6 @@ function positionHotspots() {
     const point = hotspotCoords[key];
     if (!point) return;
 
-    // Fixed pixel coordinates inside the room-map canvas (1600x900).
     spot.style.left = `${point.x}px`;
     spot.style.top = `${point.y}px`;
   });
@@ -175,15 +212,6 @@ function activateHotspot(key) {
   renderCard(activeKey);
 }
 
-hotspots.forEach((spot) => {
-  const key = spot.dataset.key;
-  spot.addEventListener("click", (e) => {
-    e.stopPropagation();
-    if (performance.now() < suppressCloseUntil) return;
-    activateHotspot(key);
-  });
-});
-
 function closeCard() {
   card.classList.remove("open");
   hotspots.forEach((spot) => spot.classList.remove("is-active"));
@@ -192,29 +220,37 @@ function closeCard() {
   pendingCardTimer = null;
 }
 
-closeCardBtn.addEventListener("click", () => {
-  closeCard();
-});
+function toggleDayNight() {
+  if (isTransitioning) return;
+  isTransitioning = true;
 
-document.addEventListener("click", (event) => {
-  if (performance.now() < suppressCloseUntil) return;
-  const target = event.target;
-  if (target && (target.closest(".hotspot") || target.closest(".whisper-card"))) {
-    return;
-  }
-  closeCard();
-});
+  whiteout.classList.add("active");
 
-window.addEventListener("resize", () => {
-  if (isPointerDown || isDragging) return;
-  clampMapToBounds();
-  applyMapTransform();
-});
+  setTimeout(() => {
+    bgVideo.loop = false;
+    bgVideo.src = "./assets/transition.mp4";
+    bgVideo.volume = VOLUME.transition;
+    bgVideo.load();
+    bgVideo.play();
 
-window.addEventListener("load", () => {
-  positionHotspots();
-  centerMapOnHeart();
-});
+    setTimeout(() => {
+      whiteout.classList.remove("active");
+    }, 400);
+
+    bgVideo.onended = () => {
+      isDay = !isDay;
+      bgVideo.loop = true;
+      bgVideo.src = isDay
+        ? "./assets/daytime.mp4"
+        : "./assets/nighttime.mp4";
+      bgVideo.volume = isDay ? VOLUME.day : VOLUME.night;
+      bgVideo.load();
+      bgVideo.play();
+      isTransitioning = false;
+      bgVideo.onended = null;
+    };
+  }, 400);
+}
 
 function onPointerDown(e) {
   if (e.target && e.target.closest(".hotspot")) return;
@@ -267,73 +303,9 @@ function onPointerUp(e) {
   roomContainer.classList.remove("dragging");
 }
 
-if (roomContainer) {
-  roomContainer.addEventListener("pointerdown", onPointerDown);
-  roomContainer.addEventListener("pointermove", onPointerMove, { passive: false });
-  roomContainer.addEventListener("pointerup", onPointerUp);
-  roomContainer.addEventListener("pointercancel", onPointerUp);
-}
-
-// Day/night toggle
-const bgVideo = document.getElementById("bg-video");
-const whiteout = document.getElementById("whiteout");
-const lightToggle = document.getElementById("light-toggle");
-
-const VOLUME = {
-  night: 0.99,
-  day: 0.99,
-  transition: 0.8
-};
-
-bgVideo.volume = VOLUME.night;
-
-let isDay = false;
-let isTransitioning = false;
-
-hotspotCoords.light = {
-  x: 0.50 * IMAGE_SIZE.width,
-  y: 0.13 * IMAGE_SIZE.height
-};
-
-function toggleDayNight() {
-  if (isTransitioning) return;
-  isTransitioning = true;
-
-  whiteout.classList.add("active");
-
-  setTimeout(() => {
-    bgVideo.loop = false;
-    bgVideo.src = "./assets/transition.mp4";
-    bgVideo.volume = VOLUME.transition;
-    bgVideo.load();
-    bgVideo.play();
-
-    setTimeout(() => {
-      whiteout.classList.remove("active");
-    }, 400);
-
-    bgVideo.onended = () => {
-      isDay = !isDay;
-      bgVideo.loop = true;
-      bgVideo.src = isDay
-        ? "./assets/daytime.mp4"
-        : "./assets/nighttime.mp4";
-      bgVideo.volume = isDay ? VOLUME.day : VOLUME.night;
-      bgVideo.load();
-      bgVideo.play();
-      isTransitioning = false;
-      bgVideo.onended = null;
-    };
-  }, 400);
-}
-
-lightToggle.addEventListener("click", (e) => {
-  e.stopPropagation();
-  toggleDayNight();
-});
-
-// Landing screen
-const landing = document.getElementById("landing");
+/* ═══════════════════════════════════════════
+   SECTION 6 — EVENT LISTENERS
+   ═══════════════════════════════════════════ */
 
 landing.addEventListener("click", () => {
   bgVideo.muted = false;
@@ -347,4 +319,47 @@ landing.addEventListener("click", () => {
   }, 800);
 });
 
-bgVideo.muted = true;
+hotspots.forEach((spot) => {
+  const key = spot.dataset.key;
+  spot.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (performance.now() < suppressCloseUntil) return;
+    activateHotspot(key);
+  });
+});
+
+closeCardBtn.addEventListener("click", () => {
+  closeCard();
+});
+
+document.addEventListener("click", (event) => {
+  if (performance.now() < suppressCloseUntil) return;
+  const target = event.target;
+  if (target && (target.closest(".hotspot") || target.closest(".whisper-card"))) {
+    return;
+  }
+  closeCard();
+});
+
+lightToggle.addEventListener("click", (e) => {
+  e.stopPropagation();
+  toggleDayNight();
+});
+
+if (roomContainer) {
+  roomContainer.addEventListener("pointerdown", onPointerDown);
+  roomContainer.addEventListener("pointermove", onPointerMove, { passive: false });
+  roomContainer.addEventListener("pointerup", onPointerUp);
+  roomContainer.addEventListener("pointercancel", onPointerUp);
+}
+
+window.addEventListener("resize", () => {
+  if (isPointerDown || isDragging) return;
+  clampMapToBounds();
+  applyMapTransform();
+});
+
+window.addEventListener("load", () => {
+  positionHotspots();
+  centerMapOnHeart();
+});
