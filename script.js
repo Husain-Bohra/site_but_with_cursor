@@ -90,7 +90,7 @@ const DRAG_THRESHOLD_PX = 12;
    SECTION 2 — DOM REFERENCES
    ═══════════════════════════════════════════ */
 
-const bgVideo = document.getElementById("bg-video");
+let bgVideo = document.getElementById("bg-video");
 const whiteout = document.getElementById("whiteout");
 const landing = document.getElementById("landing");
 const lightToggle = document.getElementById("light-toggle");
@@ -105,6 +105,7 @@ const cardContent = document.getElementById("card-content");
 
 const roomContainer = document.getElementById("room-container");
 const roomMap = document.getElementById("room-map");
+const diagEl = document.getElementById("diag");
 
 /* ═══════════════════════════════════════════
    SECTION 3 — STATE VARIABLES
@@ -131,6 +132,9 @@ let intentionalPause = false;
 let lastKnownTime = 0;
 let frozenCheckTimer = null;
 let consecutiveFreezes = 0;
+let keepAliveBackoff = 0;
+let currentVideoSrc = "./assets/nighttime.mp4";
+let transitionFallbackTimer = null;
 
 /* ═══════════════════════════════════════════
    SECTION 4 — INITIALIZATION
@@ -140,7 +144,35 @@ const isMobile = window.innerWidth <= 768
   || /Mobi|Android/i.test(navigator.userAgent);
 
 /* ═══════════════════════════════════════════
-   SECTION 5 — FUNCTIONS
+   SECTION 5 — DIAGNOSTIC SYSTEM
+   ═══════════════════════════════════════════ */
+
+const diagLog = [];
+const MAX_DIAG = 25;
+
+function diag(msg) {
+  if (!isMobile || !diagEl) return;
+  const t = (performance.now() / 1000).toFixed(1);
+  diagLog.push(`[${t}s] ${msg}`);
+  if (diagLog.length > MAX_DIAG) diagLog.shift();
+  diagEl.textContent = diagLog.join("\n");
+}
+
+const TRACKED_EVENTS = [
+  "play", "playing", "pause", "ended", "stalled",
+  "waiting", "error", "suspend", "emptied", "loadeddata", "canplay"
+];
+
+function attachDiagListeners(vid) {
+  TRACKED_EVENTS.forEach(evt => {
+    vid.addEventListener(evt, () => {
+      diag(`${evt} p=${vid.paused} t=${vid.currentTime.toFixed(1)} rs=${vid.readyState} ns=${vid.networkState}`);
+    });
+  });
+}
+
+/* ═══════════════════════════════════════════
+   SECTION 6 — FUNCTIONS
    ═══════════════════════════════════════════ */
 
 function positionHotspots() {
@@ -196,8 +228,6 @@ function renderCard(key) {
     card.classList.add("open");
   };
 
-  // If the card is already open, we "whisper" between topics smoothly:
-  // fade out first, then swap content and fade back in.
   if (card.classList.contains("open")) {
     card.classList.remove("open");
     if (pendingCardTimer) window.clearTimeout(pendingCardTimer);
@@ -225,9 +255,87 @@ function closeCard() {
   pendingCardTimer = null;
 }
 
+/* ═══════════════════════════════════════════
+   SECTION 7 — VIDEO RECOVERY SYSTEM
+   ═══════════════════════════════════════════ */
+
 function keepVideoAlive() {
   if (intentionalPause || !userHasInteracted || bgVideo.ended) return;
-  bgVideo.play().catch(() => {});
+  if (keepAliveBackoff > 0) {
+    keepAliveBackoff--;
+    return;
+  }
+  keepAliveBackoff = 2;
+  diag("keepAlive: retry play()");
+  bgVideo.play().catch((e) => {
+    diag(`keepAlive FAIL: ${e.name}`);
+  });
+}
+
+function onVideoEnded() {
+  if (isTransitioning) {
+    finishTransition();
+    return;
+  }
+  diag("manual-loop: seek→0");
+  bgVideo.currentTime = 0;
+  bgVideo.play().catch((e) => {
+    diag(`loop-play FAIL: ${e.name}`);
+  });
+}
+
+function onVideoError() {
+  const err = bgVideo.error;
+  diag(`VIDEO ERROR: code=${err?.code} msg=${err?.message}`);
+  if (isTransitioning) {
+    finishTransition();
+  }
+}
+
+function attachVideoListeners(vid) {
+  attachDiagListeners(vid);
+  vid.addEventListener("pause", keepVideoAlive);
+  vid.addEventListener("ended", onVideoEnded);
+  vid.addEventListener("error", onVideoError);
+}
+
+function replaceVideoElement() {
+  diag("NUCLEAR: destroying + recreating <video>");
+  intentionalPause = true;
+  stopFrozenCheck();
+
+  const parent = bgVideo.parentNode;
+  const nextSibling = bgVideo.nextSibling;
+
+  const newVideo = document.createElement("video");
+  newVideo.id = "bg-video";
+  newVideo.className = "room-bg";
+  newVideo.src = currentVideoSrc;
+  newVideo.muted = true;
+  newVideo.playsInline = true;
+  newVideo.preload = "auto";
+  newVideo.setAttribute("playsinline", "");
+  newVideo.setAttribute("muted", "");
+  newVideo.setAttribute("preload", "auto");
+
+  bgVideo.removeAttribute("src");
+  bgVideo.load();
+  bgVideo.remove();
+
+  if (nextSibling) {
+    parent.insertBefore(newVideo, nextSibling);
+  } else {
+    parent.appendChild(newVideo);
+  }
+
+  bgVideo = newVideo;
+  attachVideoListeners(bgVideo);
+
+  intentionalPause = false;
+  bgVideo.play().catch((e) => {
+    diag(`nuclear-play FAIL: ${e.name}`);
+  });
+  startFrozenCheck();
 }
 
 function startFrozenCheck() {
@@ -242,13 +350,18 @@ function startFrozenCheck() {
     }
     if (Math.abs(bgVideo.currentTime - lastKnownTime) < 0.01) {
       consecutiveFreezes++;
-      if (consecutiveFreezes >= 2) {
+      diag(`FROZEN #${consecutiveFreezes} t=${bgVideo.currentTime.toFixed(2)} rs=${bgVideo.readyState} ns=${bgVideo.networkState}`);
+      if (consecutiveFreezes >= 3) {
+        replaceVideoElement();
+      } else if (consecutiveFreezes >= 2) {
+        diag("escalate: load() + seek + play()");
         const t = bgVideo.currentTime;
         bgVideo.load();
         bgVideo.currentTime = t;
-        consecutiveFreezes = 0;
+        bgVideo.play().catch(() => {});
+      } else {
+        bgVideo.play().catch(() => {});
       }
-      bgVideo.play().catch(() => {});
     } else {
       consecutiveFreezes = 0;
     }
@@ -263,6 +376,31 @@ function stopFrozenCheck() {
   }
 }
 
+/* ═══════════════════════════════════════════
+   SECTION 8 — DAY/NIGHT TOGGLE
+   ═══════════════════════════════════════════ */
+
+function finishTransition() {
+  if (!isTransitioning) return;
+  if (transitionFallbackTimer) {
+    clearTimeout(transitionFallbackTimer);
+    transitionFallbackTimer = null;
+  }
+
+  intentionalPause = true;
+  isDay = !isDay;
+  currentVideoSrc = isDay
+    ? "./assets/daytime.mp4"
+    : "./assets/nighttime.mp4";
+  bgVideo.src = currentVideoSrc;
+  bgVideo.load();
+  intentionalPause = false;
+  bgVideo.play().catch(() => {});
+  startFrozenCheck();
+  isTransitioning = false;
+  diag(`transition → ${currentVideoSrc.split("/").pop()}`);
+}
+
 function toggleDayNight() {
   if (isTransitioning) return;
   isTransitioning = true;
@@ -271,7 +409,6 @@ function toggleDayNight() {
 
   whiteout.classList.add("active");
 
-  bgVideo.loop = false;
   bgVideo.src = "./assets/transition.mp4";
   bgVideo.load();
   intentionalPause = false;
@@ -281,30 +418,14 @@ function toggleDayNight() {
     whiteout.classList.remove("active");
   }, 800);
 
-  const fallbackTimer = setTimeout(finishTransition, 10000);
-
-  function finishTransition() {
-    if (!isTransitioning) return;
-    clearTimeout(fallbackTimer);
-    bgVideo.removeEventListener("ended", finishTransition);
-    bgVideo.removeEventListener("error", finishTransition);
-
-    intentionalPause = true;
-    isDay = !isDay;
-    bgVideo.loop = true;
-    bgVideo.src = isDay
-      ? "./assets/daytime.mp4"
-      : "./assets/nighttime.mp4";
-    bgVideo.load();
-    intentionalPause = false;
-    bgVideo.play().catch(() => {});
-    startFrozenCheck();
-    isTransitioning = false;
-  }
-
-  bgVideo.addEventListener("ended", finishTransition);
-  bgVideo.addEventListener("error", finishTransition);
+  transitionFallbackTimer = setTimeout(finishTransition, 10000);
+  diag("toggle: started transition");
 }
+
+/* ═══════════════════════════════════════════
+   SECTION 9 — MAP PANNING
+   ═══════════════════════════════════════════ */
+
 function onPointerDown(e) {
   if (e.target && e.target.closest(".hotspot")) return;
   if (!roomContainer || !roomMap) return;
@@ -357,19 +478,22 @@ function onPointerUp(e) {
 }
 
 /* ═══════════════════════════════════════════
-   SECTION 6 — EVENT LISTENERS
+   SECTION 10 — EVENT LISTENERS
    ═══════════════════════════════════════════ */
 
-bgVideo.addEventListener("pause", keepVideoAlive);
+attachVideoListeners(bgVideo);
 
 landing.addEventListener("click", () => {
   userHasInteracted = true;
+  diag("landing click — userHasInteracted=true");
   if (!isMobile) {
     bgVideo.volume = VOLUME.night;
     bgVideo.removeAttribute("muted");
     bgVideo.muted = false;
   }
-  bgVideo.play().catch(() => {});
+  bgVideo.play().catch((e) => {
+    diag(`landing-play FAIL: ${e.name}`);
+  });
   startFrozenCheck();
   landing.classList.add("fade-out");
   setTimeout(() => landing.remove(), 800);
@@ -418,4 +542,5 @@ window.addEventListener("resize", () => {
 window.addEventListener("load", () => {
   positionHotspots();
   centerMapOnHeart();
+  diag(`init: mobile=${isMobile} src=${bgVideo.src.split("/").pop()} muted=${bgVideo.muted}`);
 });
